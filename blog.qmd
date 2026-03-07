@@ -1,11 +1,17 @@
 
 ---
 title: "What Predicts Whether a UFC Fight Ends in a Finish?"
+subtitle: "An Empirical UFCStats Analysis (2010+)"
+author: "Henry Clifton"
+date: "2026-03-07"
 format:
   html:
+    theme: cosmo
     toc: true
+    toc-depth: 2
     code-fold: false
-    page-layout: full
+    page-layout: article
+    embed-resources: true
 execute:
   echo: false
 ---
@@ -29,6 +35,30 @@ The analysis compares a focused set of pre-fight factors:
 
 The key empirical question is whether popular fighter-level explanations survive once the model controls for structural differences such as weight class.
 
+```{python}
+#| label: setup-visuals
+#| include: false
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+
+DATA_FILE = Path("data/processed/analytic_dataset_2010plus.csv")
+df = pd.read_csv(DATA_FILE, parse_dates=["event_date"])
+
+palette = {
+    "primary": "#1f4e79",
+    "secondary": "#2a9d8f",
+    "accent": "#e76f51",
+    "neutral": "#7a8ba1",
+}
+
+plotly_template = "simple_white"
+```
+
 ## Data
 
 The dataset was built by scraping publicly available UFCStats pages for:
@@ -48,6 +78,14 @@ Because early UFC events include tournament-era structures, different rules, and
 - **6,773 fights** in Model 1 and Model 2
 - **5,450 fights** in Model 3 after missing-value filtering
 
+| Sample summary | Count |
+|---|---:|
+| Full scraped sample fights | 8,560 |
+| Full scraped fighter profiles | 2,662 |
+| Modern sample (2010+) | 7,295 |
+| Model 2 estimation sample | 6,773 |
+| Model 3 estimation sample | 5,450 |
+
 The main cleaning steps were:
 
 - coding finish outcomes as KO/TKO-or-submission versus decision, while excluding non-standard outcomes
@@ -64,19 +102,130 @@ Three descriptive patterns are most useful before modelling.
 
 First, finish rates differ sharply across divisions.
 
-![Finish rate by weight class in the 2010+ sample.](output/figures/finish_rate_by_weight_class.png){fig-align="center" width="85%"}
+```{python}
+#| label: fig-finish-rate-by-weight-class
+#| fig-cap: "Interactive finish rate by weight class (2010+ sample). Hover to view exact rates and fight counts."
+weight_df = (
+    df.dropna(subset=["finish"])
+    .groupby("weight_class_grouped", as_index=False)
+    .agg(finish_rate=("finish", "mean"), fights=("finish", "size"))
+    .sort_values("finish_rate", ascending=True)
+)
+
+fig_weight = go.Figure(
+    go.Bar(
+        x=weight_df["finish_rate"],
+        y=weight_df["weight_class_grouped"],
+        orientation="h",
+        marker_color=palette["primary"],
+        customdata=weight_df["fights"],
+        hovertemplate=(
+            "<b>%{y}</b><br>"
+            "Finish rate: %{x:.1%}<br>"
+            "Fights: %{customdata:,}<extra></extra>"
+        ),
+    )
+)
+fig_weight.update_layout(
+    template=plotly_template,
+    title="Finish rate by weight class",
+    xaxis_title="Finish rate",
+    yaxis_title="Weight class",
+    height=520,
+)
+fig_weight.update_xaxes(tickformat=".0%")
+fig_weight.show()
+```
 
 Heavyweight and Light Heavyweight bouts are much more likely to end in a finish than lower-weight divisions. Women's divisions, especially Women's Strawweight, have lower finish rates. This already suggests that weight class should be central in the empirical model.
 
 Second, finish rates vary over time but remain broadly around the 50% range across most years.
 
-![Finish rate by year in the 2010+ sample.](output/figures/finish_rate_by_year.png){fig-align="center" width="85%"}
+```{python}
+#| label: fig-finish-rate-by-year
+#| fig-cap: "Interactive yearly finish rates in the 2010+ sample. Hover to view exact yearly rates and sample sizes."
+year_df = (
+    df.dropna(subset=["finish"])
+    .assign(event_year=lambda x: x["event_date"].dt.year)
+    .groupby("event_year", as_index=False)
+    .agg(finish_rate=("finish", "mean"), fights=("finish", "size"))
+    .sort_values("event_year")
+)
+
+fig_year = go.Figure(
+    go.Scatter(
+        x=year_df["event_year"],
+        y=year_df["finish_rate"],
+        mode="lines+markers",
+        line=dict(color=palette["secondary"], width=2.5),
+        marker=dict(size=7),
+        customdata=year_df["fights"],
+        hovertemplate=(
+            "<b>%{x}</b><br>"
+            "Finish rate: %{y:.1%}<br>"
+            "Fights: %{customdata:,}<extra></extra>"
+        ),
+    )
+)
+fig_year.update_layout(
+    template=plotly_template,
+    title="Finish rate by year",
+    xaxis_title="Year",
+    yaxis_title="Finish rate",
+    height=460,
+)
+fig_year.update_yaxes(tickformat=".0%", range=[0.35, 0.75])
+fig_year.show()
+```
 
 There is year-to-year movement, but no clear trend break that overturns the cross-division story. The final year in the sample is partial and should be read cautiously.
 
 Third, age-gap bins show a mild upward pattern at larger gaps.
 
-![Finish rate by binned age-gap groups in the 2010+ sample.](output/figures/finish_rate_by_age_gap_bin.png){fig-align="center" width="85%"}
+```{python}
+#| label: fig-finish-rate-by-age-gap
+#| fig-cap: "Interactive finish rates by binned age-gap groups (2010+ sample). Hover to view rates and fight counts."
+bins = [0, 1, 2, 3, 4, 5, 7, 10, np.inf]
+labels = ["0-1", "1-2", "2-3", "3-4", "4-5", "5-7", "7-10", "10+"]
+
+age_bin_df = (
+    df.dropna(subset=["finish", "age_diff"])
+    .assign(
+        age_gap_bin=lambda x: pd.cut(
+            x["age_diff"],
+            bins=bins,
+            labels=labels,
+            right=False,
+            include_lowest=True,
+        )
+    )
+    .groupby("age_gap_bin", as_index=False, observed=False)
+    .agg(finish_rate=("finish", "mean"), fights=("finish", "size"))
+)
+
+fig_age_bin = go.Figure(
+    go.Bar(
+        x=age_bin_df["age_gap_bin"].astype(str),
+        y=age_bin_df["finish_rate"],
+        marker_color=palette["accent"],
+        customdata=age_bin_df["fights"],
+        hovertemplate=(
+            "<b>Age gap %{x} years</b><br>"
+            "Finish rate: %{y:.1%}<br>"
+            "Fights: %{customdata:,}<extra></extra>"
+        ),
+    )
+)
+fig_age_bin.update_layout(
+    template=plotly_template,
+    title="Finish rate by age-gap bin",
+    xaxis_title="Age-gap bin (years)",
+    yaxis_title="Finish rate",
+    height=460,
+)
+fig_age_bin.update_yaxes(tickformat=".0%", range=[0.35, 0.75])
+fig_age_bin.show()
+```
 
 The relationship is not perfectly monotonic at small gaps, but the largest age differences have higher finish rates. This is consistent with the positive age-gap association estimated later in the regression models.
 
@@ -134,7 +283,87 @@ Model 3 also suggests that:
 
 The figure below summarises odds ratios from the richer specification.
 
-![Odds ratios from the richer logistic-regression specification.](output/figures/logit_odds_ratios.png){fig-align="center" width="80%"}
+```{python}
+#| label: fig-odds-ratios-model3
+#| fig-cap: "Interactive odds ratios from Model 3 (2010+ sample). Points show odds ratios and bars show 95% confidence intervals."
+model3_formula = (
+    "finish ~ reach_diff + age_diff + experience_diff + "
+    "C(weight_class_grouped) + inactivity_diff + stance_mismatch"
+)
+model3_required = [
+    "finish",
+    "reach_diff",
+    "age_diff",
+    "experience_diff",
+    "weight_class_grouped",
+    "inactivity_diff",
+    "stance_mismatch",
+]
+model3_df = df[model3_required].dropna().copy()
+model3_df["finish"] = model3_df["finish"].astype(int)
+model3 = smf.glm(formula=model3_formula, data=model3_df, family=sm.families.Binomial()).fit()
+
+params = model3.params
+conf_int = model3.conf_int()
+rows = []
+labels = {
+    "reach_diff": "Reach gap (inches)",
+    "age_diff": "Age gap (years)",
+    "experience_diff": "UFC experience gap",
+    "inactivity_diff": "Inactivity gap (days)",
+    "stance_mismatch": "Stance mismatch",
+}
+for term, estimate in params.items():
+    if term == "Intercept" or term.startswith("C(weight_class_grouped)"):
+        continue
+    odds_ratio = float(np.exp(estimate))
+    ci_low = float(np.exp(conf_int.loc[term, 0]))
+    ci_high = float(np.exp(conf_int.loc[term, 1]))
+    rows.append(
+        {
+            "term": term,
+            "label": labels.get(term, term),
+            "odds_ratio": odds_ratio,
+            "ci_low": ci_low,
+            "ci_high": ci_high,
+        }
+    )
+
+or_df = pd.DataFrame(rows).sort_values("odds_ratio")
+fig_or = go.Figure(
+    go.Scatter(
+        x=or_df["odds_ratio"],
+        y=or_df["label"],
+        mode="markers",
+        marker=dict(color=palette["primary"], size=9),
+        error_x=dict(
+            type="data",
+            symmetric=False,
+            array=(or_df["ci_high"] - or_df["odds_ratio"]),
+            arrayminus=(or_df["odds_ratio"] - or_df["ci_low"]),
+            color=palette["neutral"],
+            thickness=1.5,
+            width=3,
+        ),
+        customdata=np.stack([or_df["ci_low"], or_df["ci_high"]], axis=-1),
+        hovertemplate=(
+            "<b>%{y}</b><br>"
+            "Odds ratio: %{x:.3f}<br>"
+            "95% CI: [%{customdata[0]:.3f}, %{customdata[1]:.3f}]<extra></extra>"
+        ),
+    )
+)
+fig_or.add_vline(x=1.0, line_dash="dash", line_color=palette["accent"])
+fig_or.update_layout(
+    template=plotly_template,
+    title="Model 3 odds ratios",
+    xaxis_title="Odds ratio (log scale)",
+    yaxis_title="Predictor",
+    height=430,
+)
+fig_or.update_xaxes(type="log")
+fig_or.show()
+```
 
 Two points stand out. First, **age gap** remains above 1 with a relatively tight interval. Second, **reach gap** stays close to 1, reinforcing the conclusion that it is not a strong predictor once broader context is controlled.
 

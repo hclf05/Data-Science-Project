@@ -24,3 +24,6 @@ output/*.pdf
 
 # Environment files
 .env
+
+# Quarto temp artifacts
+blog.quarto_ipynb*

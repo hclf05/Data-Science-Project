@@ -6,5 +6,6 @@ numpy
 lxml
 html5lib
 matplotlib
+plotly
 statsmodels
 scikit-learn
