@@ -1,4 +1,3 @@
-
 ---
 title: "What Predicts Whether a UFC Fight Ends in a Finish?"
 subtitle: "An Empirical UFCStats Analysis (2010+)"
