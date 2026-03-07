@@ -1,0 +1,79 @@
+UFC finish model robustness checks (2010+)
+=========================================
+
+Analysis window: fights on or after 2010-01-01
+Filtered dataset rows: 7295
+
+ROBUSTNESS TEST 1 — MEN ONLY
+----------------------------
+Formula: finish ~ reach_diff + age_diff + experience_diff + C(weight_class_grouped) + inactivity_diff + stance_mismatch
+Sample size: 4831
+
+                 Generalized Linear Model Regression Results                  
+==============================================================================
+Dep. Variable:                 finish   No. Observations:                 4831
+Model:                            GLM   Df Residuals:                     4817
+Model Family:                Binomial   Df Model:                           13
+Link Function:                  Logit   Scale:                          1.0000
+Method:                          IRLS   Log-Likelihood:                -3303.4
+Date:                Sat, 07 Mar 2026   Deviance:                       6606.8
+Time:                        10:03:15   Pearson chi2:                 4.83e+03
+No. Iterations:                     4   Pseudo R-squ. (CS):            0.01778
+Covariance Type:            nonrobust                                         
+================================================================================================================
+                                                   coef    std err          z      P>|z|      [0.025      0.975]
+----------------------------------------------------------------------------------------------------------------
+Intercept                                       -0.4041      0.110     -3.690      0.000      -0.619      -0.189
+C(weight_class_grouped)[T.Featherweight]         0.0589      0.121      0.486      0.627      -0.179       0.297
+C(weight_class_grouped)[T.Flyweight]            -0.0194      0.151     -0.128      0.898      -0.316       0.277
+C(weight_class_grouped)[T.Heavyweight]           0.7562      0.139      5.459      0.000       0.485       1.028
+C(weight_class_grouped)[T.Light Heavyweight]     0.6380      0.134      4.768      0.000       0.376       0.900
+C(weight_class_grouped)[T.Lightweight]           0.1914      0.113      1.699      0.089      -0.029       0.412
+C(weight_class_grouped)[T.Middleweight]          0.4881      0.120      4.083      0.000       0.254       0.722
+C(weight_class_grouped)[T.Other]                 0.3309      0.143      2.321      0.020       0.051       0.610
+C(weight_class_grouped)[T.Welterweight]          0.2244      0.114      1.976      0.048       0.002       0.447
+reach_diff                                       0.0017      0.014      0.121      0.903      -0.026       0.030
+age_diff                                         0.0253      0.010      2.627      0.009       0.006       0.044
+experience_diff                                 -0.0017      0.006     -0.312      0.755      -0.013       0.009
+inactivity_diff                                  0.0004      0.000      3.176      0.001       0.000       0.001
+stance_mismatch                                  0.0448      0.059      0.755      0.450      -0.071       0.161
+================================================================================================================
+
+ROBUSTNESS TEST 2 — NON-5-ROUND FIGHTS
+--------------------------------------
+Formula: finish ~ reach_diff + age_diff + experience_diff + C(weight_class_grouped) + inactivity_diff + stance_mismatch
+Sample size: 4800
+
+                 Generalized Linear Model Regression Results                  
+==============================================================================
+Dep. Variable:                 finish   No. Observations:                 4800
+Model:                            GLM   Df Residuals:                     4782
+Model Family:                Binomial   Df Model:                           17
+Link Function:                  Logit   Scale:                          1.0000
+Method:                          IRLS   Log-Likelihood:                -3253.3
+Date:                Sat, 07 Mar 2026   Deviance:                       6506.6
+Time:                        10:03:15   Pearson chi2:                 4.80e+03
+No. Iterations:                     4   Pseudo R-squ. (CS):            0.02863
+Covariance Type:            nonrobust                                         
+====================================================================================================================
+                                                       coef    std err          z      P>|z|      [0.025      0.975]
+--------------------------------------------------------------------------------------------------------------------
+Intercept                                           -0.4239      0.112     -3.792      0.000      -0.643      -0.205
+C(weight_class_grouped)[T.Featherweight]             0.0376      0.125      0.301      0.763      -0.207       0.283
+C(weight_class_grouped)[T.Flyweight]                -0.0225      0.155     -0.145      0.884      -0.326       0.281
+C(weight_class_grouped)[T.Heavyweight]               0.6166      0.145      4.241      0.000       0.332       0.902
+C(weight_class_grouped)[T.Light Heavyweight]         0.5709      0.139      4.116      0.000       0.299       0.843
+C(weight_class_grouped)[T.Lightweight]               0.1569      0.115      1.360      0.174      -0.069       0.383
+C(weight_class_grouped)[T.Middleweight]              0.4847      0.124      3.906      0.000       0.241       0.728
+C(weight_class_grouped)[T.Other]                     0.1076      0.317      0.340      0.734      -0.513       0.728
+C(weight_class_grouped)[T.Welterweight]              0.2352      0.117      2.014      0.044       0.006       0.464
+C(weight_class_grouped)[T.Women's Bantamweight]     -0.5701      0.203     -2.814      0.005      -0.967      -0.173
+C(weight_class_grouped)[T.Women's Featherweight]    -0.6286      0.610     -1.030      0.303      -1.825       0.568
+C(weight_class_grouped)[T.Women's Flyweight]        -0.4067      0.176     -2.307      0.021      -0.752      -0.061
+C(weight_class_grouped)[T.Women's Strawweight]      -0.5291      0.166     -3.186      0.001      -0.855      -0.204
+reach_diff                                           0.0054      0.015      0.368      0.713      -0.023       0.034
+age_diff                                             0.0260      0.010      2.732      0.006       0.007       0.045
+experience_diff                                     -0.0078      0.006     -1.309      0.191      -0.019       0.004
+inactivity_diff                                      0.0005      0.000      3.471      0.001       0.000       0.001
+stance_mismatch                                      0.0880      0.061      1.454      0.146      -0.031       0.207
+====================================================================================================================

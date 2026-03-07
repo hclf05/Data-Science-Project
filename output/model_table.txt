@@ -1,0 +1,115 @@
+UFC finish models (2010+)
+==========================
+
+Analysis window: fights on or after 2010-01-01
+Filtered dataset rows: 7295
+
+MODEL 1
+-------
+Formula: finish ~ reach_diff + age_diff + experience_diff
+Sample size: 6773
+
+                 Generalized Linear Model Regression Results                  
+==============================================================================
+Dep. Variable:                 finish   No. Observations:                 6773
+Model:                            GLM   Df Residuals:                     6769
+Model Family:                Binomial   Df Model:                            3
+Link Function:                  Logit   Scale:                          1.0000
+Method:                          IRLS   Log-Likelihood:                -4689.2
+Date:                Sat, 07 Mar 2026   Deviance:                       9378.3
+Time:                        10:03:15   Pearson chi2:                 6.77e+03
+No. Iterations:                     4   Pseudo R-squ. (CS):           0.001613
+Covariance Type:            nonrobust                                         
+===================================================================================
+                      coef    std err          z      P>|z|      [0.025      0.975]
+-----------------------------------------------------------------------------------
+Intercept          -0.1616      0.053     -3.025      0.002      -0.266      -0.057
+reach_diff          0.0230      0.012      1.921      0.055      -0.000       0.047
+age_diff            0.0185      0.008      2.358      0.018       0.003       0.034
+experience_diff     0.0037      0.005      0.770      0.441      -0.006       0.013
+===================================================================================
+
+MODEL 2
+-------
+Formula: finish ~ reach_diff + age_diff + experience_diff + C(weight_class_grouped)
+Sample size: 6773
+
+                 Generalized Linear Model Regression Results                  
+==============================================================================
+Dep. Variable:                 finish   No. Observations:                 6773
+Model:                            GLM   Df Residuals:                     6757
+Model Family:                Binomial   Df Model:                           15
+Link Function:                  Logit   Scale:                          1.0000
+Method:                          IRLS   Log-Likelihood:                -4599.8
+Date:                Sat, 07 Mar 2026   Deviance:                       9199.6
+Time:                        10:03:15   Pearson chi2:                 6.77e+03
+No. Iterations:                     4   Pseudo R-squ. (CS):            0.02762
+Covariance Type:            nonrobust                                         
+====================================================================================================================
+                                                       coef    std err          z      P>|z|      [0.025      0.975]
+--------------------------------------------------------------------------------------------------------------------
+Intercept                                           -0.3020      0.091     -3.312      0.001      -0.481      -0.123
+C(weight_class_grouped)[T.Featherweight]             0.0386      0.107      0.362      0.717      -0.171       0.248
+C(weight_class_grouped)[T.Flyweight]                -0.0511      0.132     -0.388      0.698      -0.309       0.207
+C(weight_class_grouped)[T.Heavyweight]               0.7126      0.122      5.834      0.000       0.473       0.952
+C(weight_class_grouped)[T.Light Heavyweight]         0.6906      0.121      5.728      0.000       0.454       0.927
+C(weight_class_grouped)[T.Lightweight]               0.1977      0.100      1.985      0.047       0.003       0.393
+C(weight_class_grouped)[T.Middleweight]              0.4846      0.106      4.570      0.000       0.277       0.692
+C(weight_class_grouped)[T.Other]                     0.3605      0.127      2.829      0.005       0.111       0.610
+C(weight_class_grouped)[T.Welterweight]              0.2191      0.101      2.173      0.030       0.021       0.417
+C(weight_class_grouped)[T.Women's Bantamweight]     -0.4533      0.169     -2.681      0.007      -0.785      -0.122
+C(weight_class_grouped)[T.Women's Featherweight]    -0.3747      0.450     -0.832      0.405      -1.257       0.508
+C(weight_class_grouped)[T.Women's Flyweight]        -0.3917      0.153     -2.565      0.010      -0.691      -0.092
+C(weight_class_grouped)[T.Women's Strawweight]      -0.5653      0.143     -3.957      0.000      -0.845      -0.285
+reach_diff                                           0.0159      0.012      1.297      0.195      -0.008       0.040
+age_diff                                             0.0203      0.008      2.529      0.011       0.005       0.036
+experience_diff                                     -0.0039      0.005     -0.796      0.426      -0.014       0.006
+====================================================================================================================
+
+MODEL 3
+-------
+Formula: finish ~ reach_diff + age_diff + experience_diff + C(weight_class_grouped) + inactivity_diff + stance_mismatch
+Sample size: 5450
+
+                 Generalized Linear Model Regression Results                  
+==============================================================================
+Dep. Variable:                 finish   No. Observations:                 5450
+Model:                            GLM   Df Residuals:                     5432
+Model Family:                Binomial   Df Model:                           17
+Link Function:                  Logit   Scale:                          1.0000
+Method:                          IRLS   Log-Likelihood:                -3692.6
+Date:                Sat, 07 Mar 2026   Deviance:                       7385.1
+Time:                        10:03:15   Pearson chi2:                 5.45e+03
+No. Iterations:                     4   Pseudo R-squ. (CS):            0.03052
+Covariance Type:            nonrobust                                         
+====================================================================================================================
+                                                       coef    std err          z      P>|z|      [0.025      0.975]
+--------------------------------------------------------------------------------------------------------------------
+Intercept                                           -0.4123      0.108     -3.829      0.000      -0.623      -0.201
+C(weight_class_grouped)[T.Featherweight]             0.0623      0.121      0.513      0.608      -0.176       0.300
+C(weight_class_grouped)[T.Flyweight]                -0.0196      0.151     -0.129      0.897      -0.316       0.277
+C(weight_class_grouped)[T.Heavyweight]               0.7640      0.138      5.517      0.000       0.493       1.035
+C(weight_class_grouped)[T.Light Heavyweight]         0.6442      0.134      4.814      0.000       0.382       0.906
+C(weight_class_grouped)[T.Lightweight]               0.1947      0.113      1.729      0.084      -0.026       0.415
+C(weight_class_grouped)[T.Middleweight]              0.4899      0.120      4.098      0.000       0.256       0.724
+C(weight_class_grouped)[T.Other]                     0.3314      0.143      2.325      0.020       0.052       0.611
+C(weight_class_grouped)[T.Welterweight]              0.2283      0.114      2.011      0.044       0.006       0.451
+C(weight_class_grouped)[T.Women's Bantamweight]     -0.5514      0.197     -2.799      0.005      -0.937      -0.165
+C(weight_class_grouped)[T.Women's Featherweight]    -0.7472      0.600     -1.245      0.213      -1.924       0.429
+C(weight_class_grouped)[T.Women's Flyweight]        -0.4511      0.173     -2.602      0.009      -0.791      -0.111
+C(weight_class_grouped)[T.Women's Strawweight]      -0.4928      0.161     -3.054      0.002      -0.809      -0.177
+reach_diff                                           0.0080      0.014      0.587      0.557      -0.019       0.035
+age_diff                                             0.0217      0.009      2.412      0.016       0.004       0.039
+experience_diff                                     -0.0037      0.005     -0.686      0.492      -0.014       0.007
+inactivity_diff                                      0.0005      0.000      3.556      0.000       0.000       0.001
+stance_mismatch                                      0.0677      0.057      1.192      0.233      -0.044       0.179
+====================================================================================================================
+
+Outcome coding:
+- finish = 1 for KO/TKO and Submission outcomes (including doctor stoppages)
+- finish = 0 for Decision outcomes (including draws decided on scorecards)
+- NC, Overturned, Could Not Continue, DQ, and Other outcomes are excluded
+
+Interpretation note:
+- reach_diff, age_diff, experience_diff, and inactivity_diff are absolute gaps between fighters.
+- experience is prior UFC fights, not total MMA record.
