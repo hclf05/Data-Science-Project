@@ -4,6 +4,8 @@ This repository contains an undergraduate empirical data science project on UFC 
 
 **Live project output:** [View the blog here](https://hclf05.github.io/Data-Science-Project/)
 
+**Repository copy of the final report:** [`blog.html`](blog.html)
+
 ## Research Question
 Which pre-fight characteristics are associated with a UFC fight ending in a finish rather than a decision?
 
