@@ -2,7 +2,7 @@
 
 This repository contains an undergraduate empirical data science project on UFC fight outcomes. It builds a full pipeline from UFCStats scraping to feature engineering, logistic regression, robustness checks, and a rendered Quarto report.
 
-**The final report for marking is [`blog.html`](blog.html) in the repository root.**
+**Live project output:** [View the blog here](https://hclf05.github.io/Data-Science-Project/)
 
 ## Research Question
 Which pre-fight characteristics are associated with a UFC fight ending in a finish rather than a decision?
