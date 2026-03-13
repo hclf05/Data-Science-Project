@@ -11,12 +11,16 @@ ENV/
 
 # Jupyter
 .ipynb_checkpoints/
+.quarto/
 
 # OS / editor
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Data / outputs that may be regenerated
 output/*.html
@@ -27,3 +31,6 @@ output/*.pdf
 
 # Quarto temp artifacts
 blog.quarto_ipynb*
+
+# Local coursework files not required for replication
+Ufc Empirical Project Checklist.pdf

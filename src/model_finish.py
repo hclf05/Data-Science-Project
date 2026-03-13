@@ -1,4 +1,4 @@
-"""Run the baseline finish model and create simple outputs."""
+"""Estimate UFC finish models (2010+), run robustness checks, and export outputs."""
 
 from __future__ import annotations
 
@@ -284,6 +284,7 @@ def plot_finish_rate_by_age_gap_bin(df: pd.DataFrame) -> None:
 
 def main() -> None:
     """Fit the requested logistic models and save outputs."""
+    # 1) Load the full analytic dataset and restrict to the modern UFC period.
     ensure_directories()
 
     if not INPUT_FILE.exists():
@@ -293,6 +294,7 @@ def main() -> None:
     filtered_df = filter_analysis_sample(df)
     filtered_df.to_csv(FILTERED_OUTPUT_FILE, index=False, date_format="%Y-%m-%d")
 
+    # 2) Estimate Models 1-3 with specification-specific complete-case samples.
     model_specs = [
         {
             "label": "MODEL 1",
@@ -345,6 +347,7 @@ def main() -> None:
     save_model_table(model_results, filtered_rows=len(filtered_df))
     full_model = model_results[-1]["model"]
 
+    # 3) Re-estimate the full model on restricted robustness samples.
     men_only_df = filtered_df.loc[
         ~filtered_df["weight_class_grouped"].fillna("").str.contains(
             "Women",
@@ -355,11 +358,11 @@ def main() -> None:
 
     robustness_specs = [
         {
-            "label": "ROBUSTNESS TEST 1 — MEN ONLY",
+            "label": "ROBUSTNESS TEST 1 - MEN ONLY",
             "subset": men_only_df,
         },
         {
-            "label": "ROBUSTNESS TEST 2 — NON-5-ROUND FIGHTS",
+            "label": "ROBUSTNESS TEST 2 - NON-5-ROUND FIGHTS",
             "subset": non_five_round_df,
         },
     ]
@@ -382,6 +385,8 @@ def main() -> None:
         print(f"{label} sample size: {len(model_df)}")
 
     save_robustness_results(robustness_results, filtered_rows=len(filtered_df))
+
+    # 4) Export figures used in the written report.
     plot_coefficients(full_model)
     plot_finish_rates(filtered_df)
     plot_finish_rate_by_year(filtered_df)

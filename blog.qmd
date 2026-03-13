@@ -32,7 +32,7 @@ The analysis compares a focused set of pre-fight factors:
 - weight class
 - stance mismatch
 
-The key empirical question is whether popular fighter-level explanations survive once the model controls for structural differences such as weight class.
+The empirical strategy is to test whether popular fighter-level explanations survive once weight-class controls are included. The analysis is strictly associational, so the results are interpreted as conditional correlations rather than causal effects.
 
 ```{python}
 #| label: setup-visuals
@@ -73,7 +73,7 @@ The full scrape contains:
 - **8,560 fights**
 - **2,662 fighter profiles**
 
-Because early UFC events include tournament-era structures, different rules, and less consistent weight classes, the main analytical sample is restricted to **2010 onwards**. The 2010 cutoff was chosen because it roughly marks the period when the UFC had established a stable set of weight classes, consistent judging criteria, and a regular event schedule. Prior to this, the organisation included open-weight tournaments, fewer divisions, and substantially different competitive structures that would make cross-era comparison unreliable.
+Because early UFC events include tournament-era structures, different rules, and less consistent weight classes, the main analytical sample is restricted to **2010 onwards**. The cutoff is used to improve comparability across fights and avoid mixing modern UFC structure with earlier formats that follow different competitive rules.
 
 After applying missing-value filtering, the estimation samples are:
 
@@ -95,15 +95,17 @@ The main cleaning steps were:
 
 The final project focuses on **pre-fight characteristics**, so the model does not use in-fight statistics such as strikes landed or takedowns completed. That keeps the research question consistent: what can be said about finishes *before* the fight starts?
 
+Sample attrition is important for interpretation. Relative to the modern sample (7,295 fights), Model 2 uses 6,773 fights and Model 3 uses 5,450 fights. Most of the additional drop from Model 2 to Model 3 comes from missing inactivity and stance information, which is why Model 2 is treated as the headline specification.
+
 ## Descriptive patterns
 
-Four descriptive patterns are most useful before modelling.
+The descriptive section has two goals. First, it shows where finish outcomes vary most in raw data. Second, it motivates the order of the regression specifications.
 
 First, finish rates differ sharply across divisions.
 
 ```{python}
 #| label: fig-finish-rate-by-weight-class
-#| fig-cap: "Interactive finish rate by weight class (2010+ sample). Hover to view exact rates and fight counts."
+#| fig-cap: "Share of fights ending in a finish (KO/TKO or submission) by weight class in the 2010+ sample. Hover for exact finish rates and fight counts."
 weight_df = (
     df.dropna(subset=["finish"])
     .groupby("weight_class_grouped", as_index=False)
@@ -127,8 +129,8 @@ fig_weight = go.Figure(
 )
 fig_weight.update_layout(
     template=plotly_template,
-    title="Finish rate by weight class",
-    xaxis_title="Finish rate",
+    title="Finish rate by weight class (2010+ sample)",
+    xaxis_title="Share of fights ending in a finish",
     yaxis_title="Weight class",
     height=520,
 )
@@ -136,14 +138,18 @@ fig_weight.update_xaxes(tickformat=".0%")
 fig_weight.show()
 ```
 
-Heavyweight and Light Heavyweight bouts are much more likely to end in a finish than lower-weight divisions. Women's divisions, especially Women's Strawweight, have lower finish rates. This already suggests that weight class should be central in the empirical model.
+The divisional spread is large. In this sample, finish rates range from about 32.2% in Women's Strawweight to about 63.6% in Heavyweight, a gap of roughly 31 percentage points. This is a strong signal that weight class should be central in the empirical model.
 
-Second, the *type* of finish also varies by division, which helps explain why heavier divisions finish more often.
+Second, the *type* of finish also varies by division.
 
 ```{python}
 #| label: fig-finish-type-by-weight-class
-#| fig-cap: "Breakdown of finishes by type (KO/TKO vs Submission) across weight classes. Hover for counts."
-finishes_only = df.dropna(subset=["finish"]).query("finish == 1").copy()
+#| fig-cap: "Among fights that ended in a finish, this 100% stacked chart shows the within-division shares of KO/TKO and Submission. Hover for exact shares and counts."
+finishes_only = (
+    df.dropna(subset=["finish"])
+    .query("finish == 1 and method_family in ['KO/TKO', 'Submission']")
+    .copy()
+)
 finish_type_df = (
     finishes_only
     .groupby(["weight_class_grouped", "method_family"], as_index=False)
@@ -159,47 +165,60 @@ pivot = finish_type_df.pivot(
 # Sort by total finishes
 pivot["total"] = pivot.sum(axis=1)
 pivot = pivot.sort_values("total", ascending=True)
+pivot["ko_share"] = pivot.get("KO/TKO", 0) / pivot["total"]
+pivot["sub_share"] = pivot.get("Submission", 0) / pivot["total"]
 
 fig_type = go.Figure()
 fig_type.add_trace(
     go.Bar(
         y=pivot.index,
-        x=pivot.get("KO/TKO", 0),
+        x=pivot["ko_share"],
         name="KO/TKO",
         orientation="h",
         marker_color=palette["ko"],
-        hovertemplate="<b>%{y}</b><br>KO/TKO: %{x}<extra></extra>",
+        customdata=pivot.get("KO/TKO", 0),
+        hovertemplate=(
+            "<b>%{y}</b><br>"
+            "KO/TKO share: %{x:.1%}<br>"
+            "KO/TKO finishes: %{customdata:,}<extra></extra>"
+        ),
     )
 )
 fig_type.add_trace(
     go.Bar(
         y=pivot.index,
-        x=pivot.get("Submission", 0),
+        x=pivot["sub_share"],
         name="Submission",
         orientation="h",
         marker_color=palette["sub"],
-        hovertemplate="<b>%{y}</b><br>Submission: %{x}<extra></extra>",
+        customdata=pivot.get("Submission", 0),
+        hovertemplate=(
+            "<b>%{y}</b><br>"
+            "Submission share: %{x:.1%}<br>"
+            "Submission finishes: %{customdata:,}<extra></extra>"
+        ),
     )
 )
 fig_type.update_layout(
     barmode="stack",
     template=plotly_template,
-    title="Finish type by weight class",
-    xaxis_title="Number of finishes",
+    title="Finish-type composition by weight class",
+    xaxis_title="Share of finishes within weight class",
     yaxis_title="Weight class",
     height=520,
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
 )
+fig_type.update_xaxes(tickformat=".0%", range=[0, 1])
 fig_type.show()
 ```
 
-The pattern is striking: heavyweight finishes are overwhelmingly KO/TKO, with very few submissions. By contrast, women's divisions — particularly Women's Flyweight and Women's Strawweight — have a higher proportion of submission finishes relative to knockouts. This is consistent with the idea that knockout power scales with weight, which helps explain why heavier divisions have more finishes overall.
+The composition differences are clear. In Heavyweight, about 79.8% of finishes are KO/TKO. In Women's Strawweight, submissions account for about 62.0% of finishes. This complements the previous figure by showing that divisions differ not only in how often fights finish, but also in how finishes occur.
 
-Third, finish rates vary over time but remain broadly in the 45–54% range across most years.
+Third, finish rates over time are relatively stable.
 
 ```{python}
 #| label: fig-finish-rate-by-year
-#| fig-cap: "Interactive yearly finish rates in the 2010+ sample. Hover to view exact yearly rates and sample sizes."
+#| fig-cap: "Yearly finish rates in the 2010+ sample. Hover for exact rates and sample sizes. The 2026 point is based on a partial year."
 year_df = (
     df.dropna(subset=["finish"])
     .assign(event_year=lambda x: x["event_date"].dt.year)
@@ -225,22 +244,22 @@ fig_year = go.Figure(
 )
 fig_year.update_layout(
     template=plotly_template,
-    title="Finish rate by year",
+    title="Annual finish rate (2010+ sample)",
     xaxis_title="Year",
-    yaxis_title="Finish rate",
+    yaxis_title="Share of fights ending in a finish",
     height=460,
 )
 fig_year.update_yaxes(tickformat=".0%", range=[0.35, 0.75])
 fig_year.show()
 ```
 
-There is year-to-year movement, but no clear trend break that overturns the cross-division story. The final year in the sample (2026) is partial and should be read cautiously — it contains only two months of data.
+There is year-to-year variation, but no structural break that overturns the cross-division pattern. Most years lie within a relatively narrow range. The 2026 value should be interpreted cautiously because it is a partial year with 64 fights.
 
-Fourth, age-gap bins show a mild upward pattern at larger gaps.
+Fourth, age-gap bins provide supportive evidence on fighter-level asymmetry.
 
 ```{python}
 #| label: fig-finish-rate-by-age-gap
-#| fig-cap: "Interactive finish rates by binned age-gap groups (2010+ sample). Hover to view rates and fight counts."
+#| fig-cap: "Finish rates by bins of absolute age difference between fighters. Hover for exact rates and fight counts."
 bins = [0, 1, 2, 3, 4, 5, 7, 10, np.inf]
 labels = ["0-1", "1-2", "2-3", "3-4", "4-5", "5-7", "7-10", "10+"]
 
@@ -274,25 +293,25 @@ fig_age_bin = go.Figure(
 )
 fig_age_bin.update_layout(
     template=plotly_template,
-    title="Finish rate by age-gap bin",
+    title="Finish rate by absolute age-gap bin",
     xaxis_title="Age-gap bin (years)",
-    yaxis_title="Finish rate",
+    yaxis_title="Share of fights ending in a finish",
     height=460,
 )
 fig_age_bin.update_yaxes(tickformat=".0%", range=[0.35, 0.75])
 fig_age_bin.show()
 ```
 
-The relationship is not perfectly monotonic at small gaps, but the largest age differences (10+ years) have noticeably higher finish rates. This is consistent with the positive age-gap association estimated later in the regression models. It may reflect the fact that larger age gaps tend to pair fighters at different points in their careers, where the older fighter is more vulnerable to being stopped.
+The relationship is not monotonic at small gaps, so this is not a dominant descriptive pattern. However, the largest age-gap bin (10+ years) has a higher finish rate (about 54.4%) than the 0-1 year bin (about 49.1%). This is consistent with the later regression result that age-gap differences are positively associated with finish probability, but the magnitude is modest relative to weight-class differences.
 
 ## Modelling approach
 
-To study finish probability more formally, the project estimates logistic regression models. Logistic regression is appropriate because the dependent variable is binary:
+To move from descriptive patterns to conditional estimates, the project uses logistic regression. This is appropriate because the dependent variable is binary:
 
 - `finish = 1` for KO/TKO or submission outcomes (including doctor stoppages)
 - `finish = 0` for decision outcomes (including decision draws)
 
-Three model specifications are estimated, each building on the last.
+Three nested specifications are estimated, each adding controls to test whether earlier associations survive.
 
 ### Model 1: baseline
 
@@ -304,13 +323,13 @@ This asks whether simple differences in fighter attributes are associated with f
 
 `finish ~ reach_diff + age_diff + experience_diff + C(weight_class_grouped)`
 
-This is the main specification. It adds weight-class controls, which the descriptive chart suggests are likely to matter a great deal. The omitted reference category is **Bantamweight**, so all weight-class coefficients are interpreted relative to bantamweight fights.
+This is the headline specification. It adds weight-class controls, which the descriptive charts suggest are central. The omitted reference category is **Bantamweight**, so all weight-class coefficients are interpreted relative to bantamweight fights.
 
 ### Model 3: richer extension
 
 `finish ~ reach_diff + age_diff + experience_diff + C(weight_class_grouped) + inactivity_diff + stance_mismatch`
 
-This extends the model by adding inactivity difference and stance mismatch. It is informative, but it also uses a smaller estimation sample because those extra variables are missing more often.
+This extends Model 2 by adding inactivity difference and stance mismatch. It is informative, but it also uses a smaller estimation sample because those variables are missing more often.
 
 Model sample sizes in the 2010+ analysis are:
 
@@ -318,21 +337,21 @@ Model sample sizes in the 2010+ analysis are:
 - **Model 2:** 6,773 fights
 - **Model 3:** 5,450 fights
 
-For interpretation, the most useful way to think about the coefficients is in terms of **odds ratios**. Values above 1 indicate higher odds of a finish, while values below 1 indicate lower odds.
+For interpretation, coefficients are reported as **odds ratios**. Values above 1 indicate higher odds of a finish, while values below 1 indicate lower odds. Throughout, results are interpreted as associations rather than causal effects.
 
 ## Results
 
-The main empirical result is that **weight class matters far more than reach difference**.
+The central result is that **weight class matters much more than reach gap** for explaining finish outcomes.
 
-In the simplest model, reach and age have some association with finishes. Once weight class is added, the reach effect weakens and is no longer statistically convincing. The common claim that reach gap is a major standalone predictor receives little support after fair cross-division comparison.
+The change from Model 1 to Model 2 is the key comparison. Reach gap is weakly positive in Model 1, but it becomes statistically unconvincing once weight-class controls are added. In plain terms, reach asymmetry does not appear to be a strong standalone correlate of finishes after divisional context is accounted for.
 
-By contrast, weight class shows a clear and persistent relationship with finish probability. Heavyweight and Light Heavyweight bouts have substantially higher finish odds than the omitted reference class (**Bantamweight**), while most women's divisions have lower finish odds in the pooled models.
+By contrast, weight-class associations are both stable and economically meaningful. In Model 2, Heavyweight and Light Heavyweight are associated with about twice the odds of a finish relative to Bantamweight (OR about 2.04 and 2.00). Women's Strawweight is associated with lower finish odds than Bantamweight (OR about 0.57). These differences are large compared with the unit-level effects of most fighter-gap variables.
 
-The table below shows the key results from **Model 2**, the headline specification.
+The table below reports the headline results from **Model 2**.
 
 ```{python}
 #| label: tbl-model2-results
-#| fig-cap: "Model 2 regression results: odds ratios with 95% confidence intervals. Reference category is Bantamweight."
+#| fig-cap: "Model 2 (headline specification): odds ratios with 95% confidence intervals. Reference category for weight class is Bantamweight."
 model2_formula = (
     "finish ~ reach_diff + age_diff + experience_diff + C(weight_class_grouped)"
 )
@@ -412,20 +431,13 @@ fig_table.update_layout(
 fig_table.show()
 ```
 
-The weight-class coefficients tell a clear story. Heavyweight fights have odds of finishing roughly twice those of bantamweight fights (OR ≈ 2.0), while Women's Strawweight fights have roughly 60% of the finish odds of bantamweight fights. Meanwhile, the reach-gap odds ratio sits close to 1 and is no longer statistically significant once division is controlled.
+Model 3 is then used as a richer extension. The broad ranking of predictors is unchanged. Age gap remains positively associated with finish probability, inactivity gap is positive and statistically clear, while experience gap and stance mismatch remain weak.
 
-Model 3 also suggests that:
-
-- **age gap** is positively associated with finish probability
-- **inactivity gap** is positively associated with finish probability
-- **experience gap** is not doing much once other controls are included
-- **stance mismatch** shows weak evidence at best
-
-The figure below summarises odds ratios from the richer specification.
+The figure below summarises odds ratios from Model 3 for the non-weight-class predictors.
 
 ```{python}
 #| label: fig-odds-ratios-model3
-#| fig-cap: "Interactive odds ratios from Model 3 (2010+ sample). Points show odds ratios and bars show 95% confidence intervals."
+#| fig-cap: "Model 3 odds ratios for non-weight-class predictors in the 2010+ sample. Weight-class coefficients are estimated but omitted from this plot for readability. Bars show 95% confidence intervals."
 model3_formula = (
     "finish ~ reach_diff + age_diff + experience_diff + "
     "C(weight_class_grouped) + inactivity_diff + stance_mismatch"
@@ -496,7 +508,7 @@ fig_or = go.Figure(
 fig_or.add_vline(x=1.0, line_dash="dash", line_color=palette["accent"])
 fig_or.update_layout(
     template=plotly_template,
-    title="Model 3 odds ratios",
+    title="Model 3 odds ratios for non-weight-class predictors",
     xaxis_title="Odds ratio (log scale)",
     yaxis_title="Predictor",
     height=430,
@@ -505,43 +517,39 @@ fig_or.update_xaxes(type="log")
 fig_or.show()
 ```
 
-Two points stand out. First, **age gap** remains above 1 with a relatively tight interval. Second, **reach gap** stays close to 1, reinforcing the conclusion that it is not a strong predictor once broader context is controlled.
+Two points stand out. First, **age gap** remains above 1 with a relatively tight interval. Second, **reach gap** remains close to 1, reinforcing that its conditional association is weak.
 
-For inactivity, the coefficient is a **per-day** effect, so the daily odds-ratio shift is small by construction. To put it in more practical terms, a 100-day gap in inactivity between two fighters corresponds to an odds ratio of approximately 1.05 — a modest but statistically significant association.
+For inactivity, the coefficient is a per-day effect, so the unit effect is mechanically small. A 100-day inactivity gap corresponds to an odds ratio of about 1.05, which is statistically detectable but modest in practical terms.
 
-That makes **Model 2** the headline specification: it retains a larger sample while including the key structural control, weight class. **Model 3** is a richer extension that trades sample size for extra controls.
+Model fit also follows this pattern. Adding weight-class controls moves pseudo R-squared from about 0.0016 (Model 1) to about 0.0276 (Model 2). Model 3 increases it only slightly to about 0.0305 while using fewer observations. This supports using **Model 2** as the headline specification and **Model 3** as a richer consistency check.
 
 ## Robustness checks
 
-The full specification (Model 3) was re-estimated on two restricted samples to test whether the main patterns hold in more homogeneous subsets of the data:
+The full specification (Model 3) is re-estimated on two restricted samples, each chosen for a specific concern.
 
-- a **men-only** sample, which removes all women's weight classes and tests whether the main results depend on pooling men's and women's divisions together
-- a **non-5-round** sample, which removes championship and main-event bouts scheduled for five rounds, testing whether the structure of longer fights (which mechanically have more time to produce a finish) drives the findings
+- **Men-only sample (N = 4,831):** checks whether results depend on pooling men's and women's divisions.
+- **Non-5-round sample (N = 4,800):** checks whether longer scheduled bouts are mechanically driving finish patterns.
 
-In both restricted samples, the broad patterns remain similar. Heavier divisions still show higher finish odds relative to bantamweight. The positive inactivity-gap association persists. Reach gap remains statistically insignificant. Age gap remains positive and significant.
+The main findings remain stable across both checks. Heavyweight and Light Heavyweight continue to show higher finish odds than Bantamweight, reach gap remains statistically weak, and age plus inactivity gaps remain positively associated with finish probability.
 
-The men-only sample is particularly informative because it shows that the weight-class gradient is not simply a by-product of pooling men's and women's divisions. Even within men's fights alone, heavyweight and light heavyweight bouts finish much more often than lighter divisions.
-
-Overall model fit remains modest across all specifications. The pseudo-R-squared values are low (around 0.02–0.03), confirming that the pre-fight variables studied here explain only a small fraction of the variation in fight outcomes. This is expected: fight outcomes depend heavily on factors that are not observable before the fight, such as fighter preparation, tactical adjustments, and in-cage momentum. The project is therefore best interpreted as identifying broad **associations** between structural fight characteristics and finish probability, not as a high-accuracy prediction tool.
+Some estimates change in size, which is expected under tighter sample restrictions. For example, the Heavyweight coefficient is smaller in the non-5-round check than in the full sample, but the direction and statistical signal remain clear. Overall, these tests support the same substantive conclusion while still reflecting associations rather than causal effects.
 
 ## Limitations
 
-There are several important limitations worth stating clearly.
+Three limitations are central for interpretation.
 
-First, the project uses only pre-fight observable characteristics drawn from UFCStats profiles. It does not include richer measures such as striking accuracy, takedown defence rates, betting odds, injury status, or detailed recent form. These would likely improve explanatory power substantially, but they would also shift the project from a pre-fight structural analysis to a more predictive modelling exercise — which is a different research question.
+First, omitted-variable risk remains. The models do not include fighter quality, injury status, short-notice replacements, betting expectations, or camp effects. If these omitted factors correlate with included regressors, estimated associations may be biased.
 
-Second, the analysis relies on scraped administrative data. Some variables are missing more often than others: in particular, `inactivity_diff` is unavailable for fighters making their UFC debut (since they have no prior UFC fight date), and `stance` is occasionally unlisted. This is why Model 3 uses roughly 1,300 fewer observations than Model 2. The results should be read with this sample difference in mind, though the directional consistency across models is reassuring.
+Second, measurement and missingness matter. UFC profile data are scraped administrative records, and variables such as stance and prior-fight timing are incomplete for some fighters. This contributes to the sample drop from 6,773 fights in Model 2 to 5,450 in Model 3, so Model 3 should be read as a robustness extension rather than the primary estimate.
 
-Third, this is an associational analysis, not a causal one. The coefficients describe partial correlations after controlling for the included variables. They should not be interpreted as causal effects. For example, the positive age-gap coefficient does not mean that *making* a fighter older would increase finish probability — it reflects the pattern that fights between fighters of very different ages tend to end in stoppages more often.
+Third, this is an associational design, not a causal one. Coefficients describe conditional relationships within observed data and should not be interpreted as treatment effects. The project therefore answers which pre-fight characteristics are most strongly associated with finishes, not which factors causally determine outcomes.
 
-Finally, the all-predictor variables are constructed as **absolute differences** between fighters. This is a deliberate simplification: it treats a 5-inch reach advantage the same as a 5-inch reach disadvantage. A directional specification (e.g., favourite's reach minus underdog's reach) would require defining a "favourite," which introduces its own complications. The absolute-difference approach is transparent and answers the question of whether *asymmetry* matters, regardless of direction.
+These limitations do not remove the value of the results. The dataset is large, definitions are transparent, and the central patterns are directionally stable across specifications and robustness checks.
 
 ## Conclusion
 
-The main answer is that **weight class is the clearest predictor of whether a UFC fight ends in a finish rather than a decision**. Heavyweight and Light Heavyweight bouts finish much more often than lighter divisions, and this pattern holds across multiple model specifications and robustness checks. The finish-type breakdown adds further insight: heavyweight finishes are overwhelmingly KO/TKO, while lighter and women's divisions see a higher share of submissions.
+The main answer to the research question is that **weight class is the strongest pre-fight correlate of finish outcomes**. Heavyweight and Light Heavyweight are associated with much higher finish odds than Bantamweight, and this pattern is stable across the main and robustness specifications.
 
-By contrast, the widely discussed idea that reach gap strongly predicts finishes receives little support once fights are compared within a model that controls for division. Reach difference is statistically significant in the simplest specification, but it drops out once weight class is included — suggesting that the apparent reach effect in raw data is largely confounded by the correlation between reach and division.
+Reach gap receives limited support once weight-class controls are introduced. Age and inactivity gaps are positively associated with finish probability, but their practical magnitudes are modest compared with divisional differences.
 
-Age gap and inactivity gap appear more informative than reach as predictors of finishes, but even then the overall model fit remains modest. The pre-fight characteristics studied here explain only a small share of the total variation in fight outcomes, which is unsurprising given the inherent unpredictability of combat sports.
-
-So the clearest conclusion is not that one fighter-level attribute explains finishes on its own. It is that the broader competitive environment of the fight — especially the division in which it takes place — matters most. The popular narrative that reach, age, or experience gaps are decisive factors is, at best, overstated once the structural context is properly accounted for.
+Overall, the evidence supports a clear ranking: structural divisional context first, fighter-gap variables second. These are robust associations in modern UFC data, not causal effects.
